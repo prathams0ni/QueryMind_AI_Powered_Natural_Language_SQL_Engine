@@ -120,7 +120,7 @@ def tables():
     })
 
 
-@app.route("/auth")
+@app.route("/auth", strict_slashes=False)
 def auth_admin():
     key = request.args.get("key", "")
     pwd = os.environ.get("ADMIN_PASSWORD", "")
