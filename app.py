@@ -256,10 +256,15 @@ def favicon_svg():
         '<stop offset="100%" stop-color="#7c3aed"/>'
         '</linearGradient></defs>'
         '<rect width="32" height="32" rx="7" fill="url(#g)"/>'
-        '<ellipse cx="16" cy="10.5" rx="7.5" ry="2.4" fill="white" opacity=".95"/>'
-        '<path d="M8.5 10.5v5.5c0 1.3 3.4 2.4 7.5 2.4s7.5-1.1 7.5-2.4v-5.5" fill="white" opacity=".22"/>'
-        '<ellipse cx="16" cy="16" rx="7.5" ry="2.4" fill="white" opacity=".78"/>'
-        '<path d="M18.5 7l-4.5 7.5H18l-4 8 9.5-11h-4.5z" fill="#fbbf24"/>'
+        '<circle cx="16" cy="16" r="12" stroke="rgba(255,255,255,0.25)" stroke-width="1.5" fill="none"/>'
+        '<circle cx="16" cy="5"  r="2.8" fill="white"/>'
+        '<circle cx="5"  cy="23" r="2.8" fill="white" opacity=".85"/>'
+        '<circle cx="27" cy="23" r="2.8" fill="white" opacity=".85"/>'
+        '<circle cx="16" cy="16" r="3.8" fill="white"/>'
+        '<line x1="16" y1="7.8"  x2="16"  y2="12.2" stroke="white" stroke-width="1.5" opacity=".5"/>'
+        '<line x1="7"  y1="21.5" x2="12.8" y2="17.8" stroke="white" stroke-width="1.5" opacity=".5"/>'
+        '<line x1="25" y1="21.5" x2="19.2" y2="17.8" stroke="white" stroke-width="1.5" opacity=".5"/>'
+        '<path d="M16 10L13.8 15.8h4.4z" fill="#fbbf24"/>'
         '</svg>'
     )
     return Response(svg, mimetype="image/svg+xml", headers={"Cache-Control": "public, max-age=86400"})
@@ -293,27 +298,89 @@ self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => c
     return Response(js, mimetype="application/javascript")
 
 
-@app.route("/app-icon.png")
-def app_icon():
+_icon_cache = None
+
+def _build_icon():
+    import math
     W = H = 192
+    cx, cy = 96, 96
+
+    nodes = [(96, 28), (28, 156), (164, 156)]
+    node_r2 = 12 * 12
+    center_r2 = 16 * 16
+    ring_r = 72.0
+
+    def d2(ax, ay, bx, by):
+        return (ax - bx) ** 2 + (ay - by) ** 2
+
+    def seg_d2(px, py, x1, y1, x2, y2):
+        dx, dy = x2 - x1, y2 - y1
+        l2 = dx * dx + dy * dy
+        if l2 == 0:
+            return d2(px, py, x1, y1)
+        t = max(0.0, min(1.0, ((px - x1) * dx + (py - y1) * dy) / l2))
+        return d2(px, py, x1 + t * dx, y1 + t * dy)
+
     rows = []
     for y in range(H):
         row = [0]
         for x in range(W):
             t = (x + y) / (W + H - 2)
-            r = int(29  + t * (124 - 29))
-            g = int(78  + t * (58  - 78))
-            b = int(216 + t * (237 - 216))
-            row += [r, g, b, 255]
+            br = int(29  + t * (124 - 29))
+            bg = int(78  + t * (58  - 78))
+            bb = int(216 + t * (237 - 216))
+
+            dist_c = math.sqrt(d2(x, y, cx, cy))
+
+            # outer ring
+            if abs(dist_c - ring_r) <= 3:
+                row += [255, 255, 255, 70]; continue
+
+            # three nodes
+            hit = False
+            for nx, ny in nodes:
+                if d2(x, y, nx, ny) <= node_r2:
+                    row += [255, 255, 255, 235]; hit = True; break
+            if hit: continue
+
+            # center node
+            if d2(x, y, cx, cy) <= center_r2:
+                row += [255, 255, 255, 248]; continue
+
+            # connection lines (width 4px)
+            line_hit = False
+            for nx, ny in nodes:
+                if seg_d2(x, y, nx, ny, cx, cy) <= 16:
+                    row += [255, 255, 255, 90]; line_hit = True; break
+            if line_hit: continue
+
+            # golden upward triangle above center
+            dy_t = y - (cy - 30)
+            if 0 <= dy_t <= 26:
+                hw = int(dy_t * 10 / 26)
+                if abs(x - cx) <= hw:
+                    row += [251, 191, 36, 248]; continue
+
+            row += [br, bg, bb, 255]
         rows.append(bytes(row))
+
     raw  = b''.join(rows)
     idat = zlib.compress(raw, 6)
+
     def chunk(tag, data):
         c = tag + data
         return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(c) & 0xFFFFFFFF)
+
     ihdr = struct.pack('>IIBBBBB', W, H, 8, 6, 0, 0, 0)
-    png  = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', ihdr) + chunk(b'IDAT', idat) + chunk(b'IEND', b'')
-    return Response(png, mimetype='image/png', headers={'Cache-Control': 'public, max-age=86400'})
+    return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', ihdr) + chunk(b'IDAT', idat) + chunk(b'IEND', b'')
+
+
+@app.route("/app-icon.png")
+def app_icon():
+    global _icon_cache
+    if _icon_cache is None:
+        _icon_cache = _build_icon()
+    return Response(_icon_cache, mimetype='image/png', headers={'Cache-Control': 'public, max-age=86400'})
 
 
 # ── admin ─────────────────────────────────────────────────
