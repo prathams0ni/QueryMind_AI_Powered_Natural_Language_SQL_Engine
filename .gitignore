@@ -4,6 +4,8 @@
 
 # Local credentials — never push
 credentials.txt
+credentials.pdf
+credentials.html
 
 # Python
 __pycache__/
