@@ -441,6 +441,19 @@
     .mbtn-s { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); color: var(--text2); }
     .mbtn-s:hover { background: rgba(255,255,255,.09); color: var(--text); }
 
+    /* ════ MOBILE PERFORMANCE — disable heavy GPU effects ════ */
+    @media (max-width: 768px) {
+      .bg-aurora, .bg-aurora-top { filter: none; opacity: .4; animation: none; }
+      .topbar     { backdrop-filter: none; background: rgba(1,11,24,.97); }
+      .query-bar  { backdrop-filter: none; background: rgba(1,11,24,.97); }
+      .r-card     { backdrop-filter: none; }
+      .modal-bg   { backdrop-filter: none; background: rgba(0,0,0,.88); }
+      .sidebar-overlay { backdrop-filter: none; background: rgba(0,0,0,.7); }
+      .logo-icon  { animation: none; }
+      .live-dot   { animation: none; }
+      .empty-orb  { animation: none; }
+    }
+
     /* ════ RESPONSIVE ════ */
 
     /* Tablet */
