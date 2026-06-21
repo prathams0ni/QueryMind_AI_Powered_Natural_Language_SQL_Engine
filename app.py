@@ -44,6 +44,11 @@ def admin_required(f):
 
 
 # ── routes ───────────────────────────────────────────────
+@app.route("/ping")
+def ping():
+    return "OK", 200
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
