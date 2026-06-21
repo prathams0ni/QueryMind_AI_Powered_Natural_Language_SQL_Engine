@@ -3,6 +3,7 @@ import uuid
 import io
 import struct
 import zlib
+import math
 import functools
 import pandas as pd
 from flask import Flask, render_template, request, jsonify, session, send_file, Response
@@ -298,17 +299,13 @@ self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => c
     return Response(js, mimetype="application/javascript")
 
 
-_icon_cache = None
-
 def _build_icon():
-    import math
     W = H = 192
     cx, cy = 96, 96
-
-    nodes = [(96, 28), (28, 156), (164, 156)]
-    node_r2 = 12 * 12
-    center_r2 = 16 * 16
-    ring_r = 72.0
+    nodes = [(96, 26), (26, 158), (166, 158)]
+    node_r2   = 15 * 15
+    center_r2 = 22 * 22
+    ring_r    = 70.0
 
     def d2(ax, ay, bx, by):
         return (ax - bx) ** 2 + (ay - by) ** 2
@@ -333,33 +330,33 @@ def _build_icon():
             dist_c = math.sqrt(d2(x, y, cx, cy))
 
             # outer ring
-            if abs(dist_c - ring_r) <= 3:
-                row += [255, 255, 255, 70]; continue
+            if abs(dist_c - ring_r) <= 4:
+                row += [255, 255, 255, 160]; continue
 
-            # three nodes
+            # three outer nodes
             hit = False
             for nx, ny in nodes:
                 if d2(x, y, nx, ny) <= node_r2:
-                    row += [255, 255, 255, 235]; hit = True; break
+                    row += [255, 255, 255, 255]; hit = True; break
             if hit: continue
 
             # center node
-            if d2(x, y, cx, cy) <= center_r2:
-                row += [255, 255, 255, 248]; continue
+            if dist_c <= 22:
+                row += [255, 255, 255, 255]; continue
 
-            # connection lines (width 4px)
+            # connection lines (width ~6px)
             line_hit = False
             for nx, ny in nodes:
-                if seg_d2(x, y, nx, ny, cx, cy) <= 16:
-                    row += [255, 255, 255, 90]; line_hit = True; break
+                if seg_d2(x, y, nx, ny, cx, cy) <= 9:
+                    row += [255, 255, 255, 180]; line_hit = True; break
             if line_hit: continue
 
-            # golden upward triangle above center
-            dy_t = y - (cy - 30)
-            if 0 <= dy_t <= 26:
-                hw = int(dy_t * 10 / 26)
+            # golden triangle above center
+            dy_t = y - (cy - 34)
+            if 0 <= dy_t <= 30:
+                hw = int(dy_t * 12 / 30)
                 if abs(x - cx) <= hw:
-                    row += [251, 191, 36, 248]; continue
+                    row += [251, 191, 36, 255]; continue
 
             row += [br, bg, bb, 255]
         rows.append(bytes(row))
@@ -375,11 +372,12 @@ def _build_icon():
     return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', ihdr) + chunk(b'IDAT', idat) + chunk(b'IEND', b'')
 
 
+# pre-generate at startup so first iOS request is instant
+_icon_cache = _build_icon()
+
+
 @app.route("/app-icon.png")
 def app_icon():
-    global _icon_cache
-    if _icon_cache is None:
-        _icon_cache = _build_icon()
     return Response(_icon_cache, mimetype='image/png', headers={'Cache-Control': 'public, max-age=86400'})
 
 
